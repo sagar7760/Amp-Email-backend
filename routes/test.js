@@ -6,7 +6,7 @@ const EmailService = require('../services/EmailService');
 router.post('/send-test', async (req, res) => {
   try {
     const { to, applicantName = 'Test User', jobTitle = 'Software Engineer', companyName = 'Hirefy' } = req.body;
-    
+
     if (!to) {
       return res.status(400).json({
         success: false,
@@ -16,16 +16,26 @@ router.post('/send-test', async (req, res) => {
 
     const emailService = new EmailService();
     const serverUrl = process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
-    
-    const result = await emailService.sendResumeRefreshmentEmail({
-      to,
-      applicantName,
-      jobTitle,
-      companyName,
-      serverUrl,
-      userAgent: req.get('User-Agent'),
-      ipAddress: req.ip
-    });
+
+    let result;
+    try {
+      result = await emailService.sendResumeRefreshmentEmail({
+        to,
+        applicantName,
+        jobTitle,
+        companyName,
+        serverUrl,
+        userAgent: req.get('User-Agent'),
+        ipAddress: req.ip
+      });
+    } catch (err) {
+      // Return error details for debugging
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send test email',
+        details: err.message || err
+      });
+    }
 
     res.json({
       success: true,

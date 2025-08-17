@@ -72,20 +72,26 @@ class EmailService {
         console.log(`📧 Sending static email to ${to} (non-AMP domain)`);
       }
 
+      console.log('📤 Attempting to send email with options:', mailOptions);
+
       // Send email
       const info = await this.transporter.sendMail(mailOptions);
+
+      console.log('✅ Email sent successfully:', info);
 
       return {
         success: true,
         messageId: info.messageId,
         recipient: to,
         ampSupported: this.isAmpSupported(to),
-        sentAt: new Date()
+        sentAt: new Date(),
+        info: info
       };
 
     } catch (error) {
       console.error('❌ Email sending failed:', error);
-      throw new Error(`Failed to send email: ${error.message}`);
+      // Attach more error details for debugging
+      throw new Error(`Failed to send email: ${error && error.message ? error.message : error}`);
     }
   }
 

@@ -30,7 +30,6 @@ router.get('/dashboard', (req, res) => {
         .results { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; }
         .success { color: #28a745; }
         .error { color: #dc3545; }
-        .bulk-textarea { height: 120px; }
     </style>
 </head>
 <body>
@@ -76,169 +75,169 @@ router.get('/dashboard', (req, res) => {
                     <label for="companyName">Company Name:</label>
                     <input type="text" id="companyName" name="companyName" value="Hirefy">
                 </div>
-                <button type="submit">Send Email</button>
+                <button type="button" id="sendEmailBtn">Send Email</button>
             </form>
             <div id="singleResult" class="results" style="display: none;"></div>
-        </div>
-
-        <!-- Bulk Email Section -->
-        <div class="form-section">
-            <h3>📦 Send Bulk Emails</h3>
-            <form id="bulkEmailForm">
-                <div class="form-group">
-                    <label for="emailList">Email List (one per line: email,name,jobTitle):</label>
-                    <textarea id="emailList" name="emailList" class="bulk-textarea" placeholder="john@gmail.com,John Doe,Software Engineer
-jane@yahoo.com,Jane Smith,Data Scientist
-bob@gmail.com,Bob Wilson,DevOps Engineer"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="bulkCompany">Company Name:</label>
-                    <input type="text" id="bulkCompany" name="bulkCompany" value="Hirefy">
-                </div>
-                <button type="submit">Send Bulk Emails</button>
-            </form>
-            <div id="bulkResult" class="results" style="display: none;"></div>
         </div>
 
         <!-- Recent Submissions -->
         <div class="form-section">
             <h3>📋 Recent Submissions</h3>
-            <button onclick="loadSubmissions()">Refresh Submissions</button>
+            <button id="refreshBtn">Refresh Submissions</button>
             <div id="submissions" style="margin-top: 15px;"></div>
         </div>
     </div>
 
     <script>
         const API_BASE = '${serverUrl}';
+        console.log('Dashboard loaded, API_BASE:', API_BASE);
         
-        // Load initial stats
-        loadStats();
-        loadSubmissions();
-        
-        // Single email form handler
-        document.getElementById('singleEmailForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData);
+        // Function to send single email
+        function sendSingleEmail() {
+            console.log('sendSingleEmail function called!');
             
-            try {
-                const response = await fetch(\`\${API_BASE}/api/test/send-test\`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: data.email,
-                        applicantName: data.applicantName,
-                        jobTitle: data.jobTitle,
-                        companyName: data.companyName
-                    })
-                });
-                
-                const result = await response.json();
-                const resultDiv = document.getElementById('singleResult');
-                
-                if (result.success) {
-                    resultDiv.innerHTML = \`<div class="success">✅ Email sent successfully to \${data.email}!</div>\`;
-                } else {
-                    resultDiv.innerHTML = \`<div class="error">❌ Failed to send email: \${result.error}</div>\`;
-                }
-                
-                resultDiv.style.display = 'block';
-                loadStats(); // Refresh stats
-            } catch (error) {
-                document.getElementById('singleResult').innerHTML = \`<div class="error">❌ Error: \${error.message}</div>\`;
-                document.getElementById('singleResult').style.display = 'block';
-            }
-        });
-        
-        // Bulk email form handler
-        document.getElementById('bulkEmailForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const emailList = formData.get('emailList').trim();
-            const companyName = formData.get('bulkCompany');
+            const email = document.getElementById('email').value;
+            const applicantName = document.getElementById('applicantName').value;
+            const jobTitle = document.getElementById('jobTitle').value;
+            const companyName = document.getElementById('companyName').value;
             
-            if (!emailList) {
-                alert('Please enter email list');
+            console.log('Form data:', { email, applicantName, jobTitle, companyName });
+            
+            if (!email || !applicantName || !jobTitle) {
+                alert('Please fill in all required fields');
                 return;
             }
             
-            const emails = emailList.split('\\n').map(line => {
-                const [email, name, jobTitle] = line.split(',').map(s => s.trim());
-                return { email, name, jobTitle };
-            }).filter(item => item.email);
-            
-            const resultDiv = document.getElementById('bulkResult');
-            resultDiv.innerHTML = '<div>Sending emails...</div>';
+            const resultDiv = document.getElementById('singleResult');
+            resultDiv.innerHTML = '<div>Sending email...</div>';
             resultDiv.style.display = 'block';
             
-            const results = [];
-            for (const emailData of emails) {
-                try {
-                    const response = await fetch(\`\${API_BASE}/api/test/send-test\`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            to: emailData.email,
-                            applicantName: emailData.name,
-                            jobTitle: emailData.jobTitle,
-                            companyName: companyName
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    results.push(\`\${emailData.email}: \${result.success ? '✅ Success' : '❌ Failed'}\`);
-                } catch (error) {
-                    results.push(\`\${emailData.email}: ❌ Error\`);
+            const requestData = {
+                to: email,
+                applicantName: applicantName,
+                jobTitle: jobTitle,
+                companyName: companyName
+            };
+            
+            console.log('Making request to:', API_BASE + '/api/test/send-test');
+            console.log('Request data:', requestData);
+            
+            fetch(API_BASE + '/api/test/send-test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                console.log('Response received:', response);
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('Result:', result);
+                if (result.success) {
+                    resultDiv.innerHTML = '<div class="success">✅ Email sent successfully to ' + email + '!</div>';
+                    document.getElementById('singleEmailForm').reset();
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Failed to send email: ' + (result.error || result.details || 'Unknown error') + '</div>';
                 }
                 
-                // Update progress
-                resultDiv.innerHTML = \`<div>Progress: \${results.length}/\${emails.length}</div><div>\${results.join('<br>')}</div>\`;
-                
-                // Wait 1 second between emails
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-            
-            loadStats(); // Refresh stats
-        });
+                try {
+                    loadStats();
+                } catch (statsError) {
+                    console.warn('Failed to load stats:', statsError);
+                }
+            })
+            .catch(error => {
+                console.error('Error sending email:', error);
+                resultDiv.innerHTML = '<div class="error">❌ Error: ' + error.message + '</div>';
+            });
+        }
         
-        async function loadStats() {
-            try {
-                const response = await fetch(\`\${API_BASE}/api/amp/submissions\`);
-                const data = await response.json();
-                
+        // Load stats function
+        function loadStats() {
+            console.log('Loading stats...');
+            fetch(API_BASE + '/api/amp/submissions')
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function(data) {
                 if (data.success) {
                     document.getElementById('totalSubmissions').textContent = data.data.pagination.total;
                     
-                    // Count AMP supported emails (rough estimate)
-                    const ampCount = data.data.submissions.filter(s => 
-                        s.email.includes('gmail.com') || s.email.includes('yahoo.com')
-                    ).length;
+                    const ampCount = data.data.submissions.filter(function(s) {
+                        return s.email.includes('gmail.com') || s.email.includes('yahoo.com');
+                    }).length;
                     document.getElementById('ampSupported').textContent = ampCount;
+                } else {
+                    console.warn('Failed to load stats:', data);
+                    document.getElementById('totalSubmissions').textContent = '0';
+                    document.getElementById('ampSupported').textContent = '0';
                 }
-            } catch (error) {
+            })
+            .catch(function(error) {
                 console.error('Failed to load stats:', error);
-            }
+                document.getElementById('totalSubmissions').textContent = 'Error';
+                document.getElementById('ampSupported').textContent = 'Error';
+            });
         }
         
-        async function loadSubmissions() {
-            try {
-                const response = await fetch(\`\${API_BASE}/api/amp/submissions?limit=5\`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    const submissionsHTML = data.data.submissions.map(sub => \`
-                        <div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px;">
-                            <strong>\${sub.email}</strong> - \${sub.currentRole} 
-                            <small style="color: #666;">(\${new Date(sub.createdAt).toLocaleDateString()})</small>
-                        </div>
-                    \`).join('');
+        // Load submissions function
+        function loadSubmissions() {
+            console.log('Loading submissions...');
+            fetch(API_BASE + '/api/amp/submissions?limit=5')
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success && data.data.submissions) {
+                    const submissionsHTML = data.data.submissions.map(function(sub) {
+                        return '<div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px;">' +
+                               '<strong>' + sub.email + '</strong> - ' + sub.currentRole + ' ' +
+                               '<small style="color: #666;">(' + new Date(sub.createdAt).toLocaleDateString() + ')</small>' +
+                               '</div>';
+                    }).join('');
                     
                     document.getElementById('submissions').innerHTML = submissionsHTML || '<p>No submissions yet.</p>';
+                } else {
+                    document.getElementById('submissions').innerHTML = '<p>No submissions yet.</p>';
                 }
-            } catch (error) {
-                document.getElementById('submissions').innerHTML = '<p>Failed to load submissions.</p>';
-            }
+            })
+            .catch(function(error) {
+                console.error('Failed to load submissions:', error);
+                document.getElementById('submissions').innerHTML = '<p>Failed to load submissions. Check console for details.</p>';
+            });
         }
+        
+        // Initialize when page loads
+        window.onload = function() {
+            console.log('Page loaded, initializing...');
+            
+            // Add event listeners
+            document.getElementById('sendEmailBtn').addEventListener('click', sendSingleEmail);
+            document.getElementById('refreshBtn').addEventListener('click', loadSubmissions);
+            
+            // Prevent form submissions
+            document.getElementById('singleEmailForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                sendSingleEmail();
+            });
+            
+            // Load initial data
+            try {
+                loadStats();
+                loadSubmissions();
+            } catch (error) {
+                console.error('Failed to load initial data:', error);
+            }
+        };
     </script>
 </body>
 </html>
