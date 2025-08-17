@@ -89,8 +89,10 @@ router.get('/dashboard', (req, res) => {
     </div>
 
     <script>
-        const API_BASE = '${serverUrl}';
+        // Determine API base URL dynamically
+        const API_BASE = window.location.origin;
         console.log('Dashboard loaded, API_BASE:', API_BASE);
+        console.log('Current URL:', window.location.href);
         
         // Function to send single email
         function sendSingleEmail() {
