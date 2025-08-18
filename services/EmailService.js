@@ -232,7 +232,7 @@ class EmailService {
       <div submit-success>
         <template type="amp-mustache">
           <p style="color: #4CAF50; text-align: center; margin-top: 20px;">
-            ✅ Thank you! Your resume information has been updated successfully.
+            ✅ {{message}}
           </p>
         </template>
       </div>
@@ -240,7 +240,7 @@ class EmailService {
       <div submit-error>
         <template type="amp-mustache">
           <p style="color: #f44336; text-align: center; margin-top: 20px;">
-             There was an error updating your information. Please try again.
+            ❌ {{message}}
           </p>
         </template>
       </div>

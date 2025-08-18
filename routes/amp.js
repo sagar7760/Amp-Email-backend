@@ -6,6 +6,15 @@ const ResumeRefreshment = require('../models/ResumeRefreshment');
 // Enhanced CORS middleware for AMP emails
 router.use((req, res, next) => {
   const origin = req.get('Origin') || req.get('Referer');
+  const ampSameOrigin = req.get('AMP-Same-Origin');
+  const sourceOrigin = req.get('__amp_source_origin');
+  
+  console.log('🔍 AMP Headers:', {
+    origin,
+    ampSameOrigin,
+    sourceOrigin,
+    userAgent: req.get('User-Agent')
+  });
   
   // Allow multiple Gmail and AMP-compatible domains
   const allowedOrigins = [
@@ -16,24 +25,12 @@ router.use((req, res, next) => {
     'https://amp-email-viewer.appspot.com'
   ];
   
-  // Check if origin is allowed or if it's a Gmail subdomain
-  const isAllowed = allowedOrigins.includes(origin) || 
-                   (origin && (origin.includes('.google.com') || origin.includes('.gmail.com')));
-  
-  if (isAllowed || !origin) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-  }
-  
-  // AMP-specific CORS headers
+  // For AMP emails, we need to be more permissive
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, AMP-Email-Sender, AMP-Email-Allow-Sender, AMP-Same-Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Expose-Headers', 'AMP-Access-Control-Allow-Source-Origin');
-  
-  // Required AMP headers
-  if (origin) {
-    res.header('AMP-Access-Control-Allow-Source-Origin', origin);
-  }
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, AMP-Email-Sender, AMP-Email-Allow-Sender, AMP-Same-Origin, __amp_source_origin');
+  res.header('Access-Control-Allow-Credentials', 'false'); // Changed to false for wildcard origin
+  res.header('Access-Control-Expose-Headers', 'AMP-Access-Control-Allow-Source-Origin, Content-Type');
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -119,31 +116,62 @@ router.post('/submit', async (req, res) => {
     }
 
     // Respond with success (required for AMP) with proper headers
-    res.header('AMP-Access-Control-Allow-Source-Origin', req.get('origin') || 'https://mail.google.com');
-    res.header('Access-Control-Expose-Headers', 'AMP-Access-Control-Allow-Source-Origin');
+    // For AMP emails, the source origin should match the email sender domain
+    const ampSourceOrigin = req.get('__amp_source_origin');
+    const origin = req.get('Origin');
+    const referer = req.get('Referer');
     
+    let sourceOrigin = 'https://mail.google.com'; // Default fallback
+    
+    if (ampSourceOrigin) {
+      sourceOrigin = ampSourceOrigin;
+    } else if (origin && origin.includes('mail.google.com')) {
+      sourceOrigin = origin;
+    } else if (referer && referer.includes('mail.google.com')) {
+      sourceOrigin = 'https://mail.google.com';
+    }
+    
+    console.log('🔍 AMP Headers for response:', {
+      '__amp_source_origin': ampSourceOrigin,
+      'Origin': origin,
+      'Referer': referer,
+      'Setting sourceOrigin to': sourceOrigin
+    });
+    
+    res.header('AMP-Access-Control-Allow-Source-Origin', sourceOrigin);
+    res.header('Content-Type', 'application/json');
+    
+    // AMP forms expect a specific response format
     res.status(200).json({
-      success: true,
       message: 'Resume information updated successfully!',
-      data: {
-        submissionId: submission._id,
-        email: submission.email,
-        applicantName: submission.applicantName,
-        currentRole: submission.currentRole,
-        yearsOfExperience: submission.yearsOfExperience,
-        submittedAt: submission.createdAt,
-        status: submission.status
-      }
+      submissionId: submission._id,
+      applicantName: submission.applicantName
     });
 
   } catch (error) {
     console.error('❌ Error processing AMP submission:', error);
     
-    // Return error response compatible with AMP
-    res.status(500).json({
-      success: false,
+    // Set the same source origin header for error responses
+    const ampSourceOrigin = req.get('__amp_source_origin');
+    const origin = req.get('Origin');
+    const referer = req.get('Referer');
+    
+    let sourceOrigin = 'https://mail.google.com';
+    if (ampSourceOrigin) {
+      sourceOrigin = ampSourceOrigin;
+    } else if (origin && origin.includes('mail.google.com')) {
+      sourceOrigin = origin;
+    } else if (referer && referer.includes('mail.google.com')) {
+      sourceOrigin = 'https://mail.google.com';
+    }
+    
+    res.header('AMP-Access-Control-Allow-Source-Origin', sourceOrigin);
+    res.header('Content-Type', 'application/json');
+    
+    // Return error response with 400 status to trigger submit-error
+    res.status(400).json({
       error: 'Failed to process submission',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'There was an error updating your information. Please try again.'
     });
   }
 });
