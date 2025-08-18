@@ -5,16 +5,42 @@ const ResumeRefreshment = require('../models/ResumeRefreshment');
 
 // Enhanced CORS middleware for AMP emails
 router.use((req, res, next) => {
+  const origin = req.get('Origin') || req.get('Referer');
+  
+  // Allow multiple Gmail and AMP-compatible domains
+  const allowedOrigins = [
+    'https://mail.google.com',
+    'https://gmail.com',
+    'https://googlemail.com', 
+    'https://amp.gmail.dev',
+    'https://amp-email-viewer.appspot.com'
+  ];
+  
+  // Check if origin is allowed or if it's a Gmail subdomain
+  const isAllowed = allowedOrigins.includes(origin) || 
+                   (origin && (origin.includes('.google.com') || origin.includes('.gmail.com')));
+  
+  if (isAllowed || !origin) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
+  
   // AMP-specific CORS headers
-  res.header('Access-Control-Allow-Origin', 'https://mail.google.com');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, AMP-Email-Sender, AMP-Email-Allow-Sender');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, AMP-Email-Sender, AMP-Email-Allow-Sender, AMP-Same-Origin');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Expose-Headers', 'AMP-Access-Control-Allow-Source-Origin');
+  
+  // Required AMP headers
+  if (origin) {
+    res.header('AMP-Access-Control-Allow-Source-Origin', origin);
+  }
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
+  
+  console.log('🔍 AMP Request - Origin:', origin, 'Method:', req.method, 'Path:', req.path);
   next();
 });
 
@@ -39,8 +65,16 @@ const resumeRefreshmentSchema = Joi.object({
 // Handle AMP form submission
 router.post('/submit', async (req, res) => {
   try {
-    console.log('📨 Received AMP form submission:', req.body);
-    console.log('📨 Headers:', req.headers);
+    console.log('📨 Received AMP form submission:', {
+      body: req.body,
+      headers: {
+        origin: req.get('Origin'),
+        referer: req.get('Referer'),
+        userAgent: req.get('User-Agent'),
+        ampEmailSender: req.get('AMP-Email-Sender'),
+        contentType: req.get('Content-Type')
+      }
+    });
 
     // Validate the submission
     const { error, value } = resumeRefreshmentSchema.validate(req.body);

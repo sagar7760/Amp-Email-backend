@@ -57,19 +57,43 @@ app.use(limiter);
 
 // Enhanced CORS for AMP emails
 app.use(cors({
-  origin: [
-    'https://mail.google.com',
-    'https://gmail.com',
-    /\.google\.com$/,
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://mail.google.com',
+      'https://gmail.com',
+      'https://googlemail.com',
+      'https://amp.gmail.dev',
+      'https://amp-email-viewer.appspot.com',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
+    
+    // Check if origin is in allowed list or is a Google/Gmail subdomain
+    const isAllowed = allowedOrigins.includes(origin) || 
+                     origin.includes('.google.com') || 
+                     origin.includes('.gmail.com') ||
+                     origin.includes('.googlemail.com');
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(' CORS blocked origin:', origin);
+      callback(null, false);
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
     'AMP-Email-Sender',
-    'AMP-Email-Allow-Sender'
+    'AMP-Email-Allow-Sender',
+    'AMP-Same-Origin'
+  ],
+  exposedHeaders: [
+    'AMP-Access-Control-Allow-Source-Origin'
   ]
 }));
 

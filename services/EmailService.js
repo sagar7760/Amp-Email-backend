@@ -44,6 +44,7 @@ class EmailService {
         jobTitle,
         companyName,
         serverUrl,
+        recipientEmail: to,
         isAmpSupported: this.isAmpSupported(to)
       });
 
@@ -98,8 +99,8 @@ class EmailService {
   /**
    * Generate email content (AMP + HTML fallback)
    */
-  generateEmailContent({ applicantName, jobTitle, companyName, serverUrl, isAmpSupported }) {
-    const ampContent = this.generateAmpContent({ applicantName, jobTitle, companyName, serverUrl });
+  generateEmailContent({ applicantName, jobTitle, companyName, serverUrl, recipientEmail, isAmpSupported }) {
+    const ampContent = this.generateAmpContent({ applicantName, jobTitle, companyName, serverUrl, recipientEmail });
     const htmlContent = this.generateHtmlContent({ applicantName, jobTitle, companyName, serverUrl });
 
     return {
@@ -111,7 +112,7 @@ class EmailService {
   /**
    * Generate AMP email content
    */
-  generateAmpContent({ applicantName, jobTitle, companyName, serverUrl }) {
+  generateAmpContent({ applicantName, jobTitle, companyName, serverUrl, recipientEmail }) {
     return `<!doctype html>
 <html ⚡4email data-css-strict>
 <head>
@@ -151,7 +152,7 @@ class EmailService {
     <form method="POST" action-xhr="${serverUrl}/api/amp/submit">
       <div class="form-group">
         <label for="email">Email Address:</label>
-        <input type="email" id="email" name="email" class="form-input" required readonly>
+        <input type="email" id="email" name="email" class="form-input" value="${recipientEmail}" required readonly>
       </div>
 
       <div class="form-group">
