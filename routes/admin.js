@@ -5,7 +5,9 @@ const ResumeRefreshment = require('../models/ResumeRefreshment');
 
 // Admin dashboard - email sending interface
 router.get('/dashboard', (req, res) => {
-  const serverUrl = process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
+  const serverUrl = req.app.locals.getServerUrl ? req.app.locals.getServerUrl(req) : (process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`);
+  
+  console.log('🔗 Dashboard Server URL:', serverUrl); // Debug log
   
   const dashboardHTML = `
 <!DOCTYPE html>
@@ -261,7 +263,9 @@ router.post('/send-bulk', async (req, res) => {
     }
 
     const emailService = new EmailService();
-    const serverUrl = process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
+    const serverUrl = req.app.locals.getServerUrl ? req.app.locals.getServerUrl(req) : (process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`);
+    
+    console.log('🔗 Bulk email Server URL:', serverUrl); // Debug log
     const results = [];
 
     for (const emailData of emails) {

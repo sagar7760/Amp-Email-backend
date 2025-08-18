@@ -15,7 +15,9 @@ router.post('/send-test', async (req, res) => {
     }
 
     const emailService = new EmailService();
-    const serverUrl = process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
+    const serverUrl = req.app.locals.getServerUrl ? req.app.locals.getServerUrl(req) : (process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`);
+    
+    console.log('🔗 Server URL for email:', serverUrl); // Debug log
 
     let result;
     try {

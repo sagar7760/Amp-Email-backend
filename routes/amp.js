@@ -61,7 +61,7 @@ router.post('/submit', async (req, res) => {
         ipAddress: req.ip || req.connection.remoteAddress,
         submissionSource: 'amp_email',
         emailMessageId: req.get('AMP-Email-Message-Id') || req.get('Message-Id'),
-        serverUrl: process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`
+        serverUrl: req.app.locals.getServerUrl ? req.app.locals.getServerUrl(req) : (process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`)
       }
     };
 
@@ -116,11 +116,13 @@ router.post('/submit', async (req, res) => {
 
 // AMP proxy endpoint (required for some AMP components)
 router.get('/proxy', (req, res) => {
+  const serverUrl = req.app.locals.getServerUrl ? req.app.locals.getServerUrl(req) : (process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`);
+  
   res.status(200).json({
     success: true,
     message: 'AMP proxy endpoint active',
     timestamp: new Date().toISOString(),
-    serverUrl: process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`
+    serverUrl: serverUrl
   });
 });
 

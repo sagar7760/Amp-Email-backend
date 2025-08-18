@@ -30,8 +30,10 @@ router.get('/resume-form', (req, res) => {
     applicantName: name || '',
     jobTitle: job || '',
     companyName: company || 'Hirefy',
-    serverUrl: process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`
+    serverUrl: req.app.locals.getServerUrl ? req.app.locals.getServerUrl(req) : (process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`)
   };
+  
+  console.log('🔗 Form Server URL:', formData.serverUrl); // Debug log
 
   const htmlForm = generateResumeRefreshmentForm(formData);
   
@@ -57,7 +59,7 @@ router.post('/resume-form', async (req, res) => {
         ipAddress: req.ip || req.connection.remoteAddress,
         submissionSource: 'web_form',
         referrer: req.get('Referer'),
-        serverUrl: process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`
+        serverUrl: req.app.locals.getServerUrl ? req.app.locals.getServerUrl(req) : (process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`)
       }
     };
 

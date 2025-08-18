@@ -16,6 +16,22 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy for Render deployment (IMPORTANT for HTTPS URLs)
+app.set('trust proxy', 1);
+
+// Helper function to get correct server URL
+function getServerUrl(req) {
+  // In production, force HTTPS
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.SERVER_URL || `https://${req.get('host')}`;
+  }
+  // In development, use the detected protocol
+  return process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
+}
+
+// Make helper available to routes
+app.locals.getServerUrl = getServerUrl;
+
 // Connect to MongoDB
 connectDB();
 
