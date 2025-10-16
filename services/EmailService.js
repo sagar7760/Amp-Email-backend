@@ -82,27 +82,75 @@ class EmailService {
         console.log(`📧 Sending static email to ${to} (non-AMP domain)`);
       }
 
-      console.log('📤 Attempting to send email with options:', mailOptions);
+      console.log('📤 Attempting to send email with options:', {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        hasAmp: !!mailOptions.amp,
+        hasHtml: !!mailOptions.html
+      });
 
-      // Send email
-      const info = await this.transporter.sendMail(mailOptions);
+      // Send email with retry logic
+      let lastError;
+      const maxRetries = 3;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`📧 Send attempt ${attempt}/${maxRetries}...`);
+          const info = await this.transporter.sendMail(mailOptions);
+          
+          console.log('✅ Email sent successfully:', {
+            messageId: info.messageId,
+            accepted: info.accepted,
+            rejected: info.rejected,
+            response: info.response
+          });
 
-      console.log('✅ Email sent successfully:', info);
+          return {
+            success: true,
+            messageId: info.messageId,
+            recipient: to,
+            ampSupported: ampSupported,
+            sentAt: new Date(),
+            info: info,
+            attempts: attempt
+          };
+        } catch (sendError) {
+          lastError = sendError;
+          console.error(`❌ Send attempt ${attempt}/${maxRetries} failed:`, sendError.message);
+          
+          // If connection timeout or network error, wait before retry
+          if (attempt < maxRetries && (sendError.code === 'ETIMEDOUT' || sendError.code === 'ECONNECTION')) {
+            const waitTime = attempt * 2000; // Progressive delay: 2s, 4s
+            console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
+        }
+      }
 
-      return {
-        success: true,
-        messageId: info.messageId,
-        recipient: to,
-        ampSupported: this.isAmpSupported(to),
-        sentAt: new Date(),
-        info: info
-      };
+      // All retries failed
+      throw lastError;
 
     } catch (error) {
-      console.error('❌ Email sending failed:', error);
-      // Attach more error details for debugging
-      const supplemental = error && error.code ? ` (code: ${error.code})` : '';
-      throw new Error(`Failed to send email: ${error && error.message ? error.message : error}${supplemental}`);
+      console.error('❌ Email sending failed after all retries:', error);
+      
+      // Provide helpful error messages based on error code
+      let helpfulMessage = error.message || 'Unknown error';
+      
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION') {
+        helpfulMessage += '\n\n💡 CONNECTION TIMEOUT:\n' +
+          '   • Check SMTP credentials are correct\n' +
+          '   • Verify SMTP_HOST and SMTP_PORT environment variables\n' +
+          '   • Ensure network/firewall allows SMTP connections';
+      } else if (error.code === 'EAUTH') {
+        helpfulMessage += '\n\n🔐 AUTHENTICATION FAILED:\n' +
+          '   • Gmail requires App Password (not regular password)\n' +
+          '   • Generate at: https://myaccount.google.com/apppasswords\n' +
+          '   • Enable 2FA first if not already enabled';
+      }
+      
+      const supplemental = error.code ? ` (code: ${error.code})` : '';
+      throw new Error(`Failed to send email: ${helpfulMessage}${supplemental}`);
     }
   }
 

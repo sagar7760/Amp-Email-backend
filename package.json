@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "build": "echo 'No build step required'",
     "email": "node email-cli.js",
-    "webhook": "node email-cli.js webhook"
+    "webhook": "node email-cli.js webhook",
+    "test:smtp": "node test-smtp.js"
   },
   "keywords": [
     "amp-email",

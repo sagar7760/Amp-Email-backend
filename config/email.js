@@ -2,11 +2,6 @@ const nodemailer = require('nodemailer');
 
 let cachedTransporter;
 
-const toNumber = (value, fallback) => {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
-};
-
 const createTransporter = () => {
   if (cachedTransporter) {
     return cachedTransporter;
@@ -17,58 +12,47 @@ const createTransporter = () => {
       throw new Error('SMTP credentials are not configured. Set SMTP_USER and SMTP_PASS environment variables.');
     }
 
-    const baseConfig = {
+    const port = parseInt(process.env.SMTP_PORT) || 587;
+    const secure = port === 465 || process.env.SMTP_SECURE === 'true';
+    
+    const config = {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: toNumber(process.env.SMTP_PORT, 587),
-      secure: process.env.SMTP_SECURE === 'true',
+      port: port,
+      secure: secure,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
       },
-      pool: process.env.SMTP_POOL === 'true',
-      maxConnections: toNumber(process.env.SMTP_MAX_CONNECTIONS, 3),
-      maxMessages: toNumber(process.env.SMTP_MAX_MESSAGES, 100),
-      connectionTimeout: toNumber(process.env.SMTP_CONNECTION_TIMEOUT, 15000),
-      greetingTimeout: toNumber(process.env.SMTP_GREETING_TIMEOUT, 10000),
-      socketTimeout: toNumber(process.env.SMTP_SOCKET_TIMEOUT, 20000),
-      requireTLS: process.env.SMTP_REQUIRE_TLS !== 'false',
-      family: toNumber(process.env.SMTP_IP_FAMILY, 4),
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000, 
+      socketTimeout: 20000,
       tls: {
-        ...((process.env.NODE_ENV !== 'production' || process.env.SMTP_ALLOW_INVALID_CERTS === 'true') && {
-          rejectUnauthorized: false
-        }),
-        servername: process.env.SMTP_TLS_SERVERNAME || process.env.SMTP_HOST || 'smtp.gmail.com'
+        rejectUnauthorized: process.env.NODE_ENV === 'production',
+        minVersion: 'TLSv1.2'
       }
     };
 
-    // Optional debug logging to help when diagnosing connection problems
-    if (process.env.SMTP_DEBUG === 'true') {
-      baseConfig.logger = true;
-      baseConfig.debug = true;
-    }
-
     console.log('📧 Email transporter configuration:', {
-      host: baseConfig.host,
-      port: baseConfig.port,
-      secure: baseConfig.secure,
-      user: baseConfig.auth.user,
-      hasPassword: !!baseConfig.auth.pass,
-      pool: baseConfig.pool,
-      requireTLS: baseConfig.requireTLS,
-      family: baseConfig.family,
-      connectionTimeout: baseConfig.connectionTimeout
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      user: config.auth.user,
+      hasPassword: !!config.auth.pass
     });
 
-    cachedTransporter = nodemailer.createTransport(baseConfig);
+    cachedTransporter = nodemailer.createTransport(config);
 
-    // Perform a background verification so that deployment failures surface in logs
+    // Verify connection in background
     cachedTransporter.verify()
       .then(() => console.log('✅ SMTP connection verified'))
-      .catch((err) => console.error('⚠️  SMTP verification failed:', err.message));
+      .catch((err) => console.error('⚠️  SMTP verification warning:', err.message));
 
     return cachedTransporter;
   } catch (error) {
-    console.error('Error creating email transporter:', error);
+    console.error('❌ Error creating email transporter:', error);
     throw error;
   }
 };
