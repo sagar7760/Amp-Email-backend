@@ -38,14 +38,21 @@ class EmailService {
     ipAddress = ''
   }) {
     try {
+      if (!to) {
+        throw new Error('Recipient email address is required');
+      }
+
+      const ampSupported = this.isAmpSupported(to);
+      const normalizedServerUrl = serverUrl || process.env.SERVER_URL;
+
       // Generate email content
       const emailContent = this.generateEmailContent({
         applicantName,
         jobTitle,
         companyName,
-        serverUrl,
+        serverUrl: normalizedServerUrl,
         recipientEmail: to,
-        isAmpSupported: this.isAmpSupported(to)
+        isAmpSupported: ampSupported
       });
 
       // Prepare mail options
@@ -61,12 +68,14 @@ class EmailService {
           'X-Email-Type': 'Resume-Refreshment-Request',
           'X-Company': companyName,
           'X-Position': jobTitle,
-          'X-AMP-Supported': this.isAmpSupported(to).toString()
+          'X-AMP-Supported': ampSupported.toString(),
+          'X-Email-Client-UA': userAgent || 'unknown',
+          'X-Email-Client-IP': Array.isArray(ipAddress) ? ipAddress.join(',') : ipAddress
         }
       };
 
       // Add AMP content only if supported
-      if (this.isAmpSupported(to)) {
+      if (ampSupported) {
         mailOptions.amp = emailContent.amp;
         console.log(`📧 Sending AMP email to ${to} (AMP supported domain)`);
       } else {
@@ -92,7 +101,8 @@ class EmailService {
     } catch (error) {
       console.error('❌ Email sending failed:', error);
       // Attach more error details for debugging
-      throw new Error(`Failed to send email: ${error && error.message ? error.message : error}`);
+      const supplemental = error && error.code ? ` (code: ${error.code})` : '';
+      throw new Error(`Failed to send email: ${error && error.message ? error.message : error}${supplemental}`);
     }
   }
 
@@ -101,7 +111,7 @@ class EmailService {
    */
   generateEmailContent({ applicantName, jobTitle, companyName, serverUrl, recipientEmail, isAmpSupported }) {
     const ampContent = this.generateAmpContent({ applicantName, jobTitle, companyName, serverUrl, recipientEmail });
-    const htmlContent = this.generateHtmlContent({ applicantName, jobTitle, companyName, serverUrl });
+    const htmlContent = this.generateHtmlContent({ applicantName, jobTitle, companyName, serverUrl, recipientEmail, isAmpSupported });
 
     return {
       amp: ampContent,
@@ -113,6 +123,7 @@ class EmailService {
    * Generate AMP email content
    */
   generateAmpContent({ applicantName, jobTitle, companyName, serverUrl, recipientEmail }) {
+    const safeServerUrl = (serverUrl || process.env.SERVER_URL || '').replace(/\/$/, '');
     return `<!doctype html>
 <html ⚡4email data-css-strict>
 <head>
@@ -149,7 +160,7 @@ class EmailService {
       <p>Hi ${applicantName}, please update your information for the ${jobTitle} position.</p>
     </div>
 
-    <form method="POST" action-xhr="${serverUrl}/api/amp/submit">
+  <form method="POST" action-xhr="${safeServerUrl}/api/amp/submit">
       <div class="form-group">
         <label for="email">Email Address:</label>
         <input type="email" id="email" name="email" class="form-input" value="${recipientEmail}" required readonly>
@@ -257,7 +268,9 @@ class EmailService {
   /**
    * Generate HTML fallback content
    */
-  generateHtmlContent({ applicantName, jobTitle, companyName, serverUrl }) {
+  generateHtmlContent({ applicantName, jobTitle, companyName, serverUrl, recipientEmail, isAmpSupported }) {
+    const safeServerUrl = (serverUrl || process.env.SERVER_URL || '').replace(/\/$/, '');
+    const resumeFormUrl = `${safeServerUrl}/api/form/resume-form?email=${encodeURIComponent(recipientEmail || '')}&name=${encodeURIComponent(applicantName)}&job=${encodeURIComponent(jobTitle)}&company=${encodeURIComponent(companyName)}`;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -284,7 +297,7 @@ class EmailService {
         </div>
         
         <div style="text-align: center;">
-            <a href="${serverUrl}/api/form/resume-form?email=${encodeURIComponent(applicantName)}&name=${encodeURIComponent(applicantName)}&job=${encodeURIComponent(jobTitle)}&company=${encodeURIComponent(companyName)}" class="cta-button">
+      <a href="${resumeFormUrl}" class="cta-button">
                 Update Resume Information
             </a>
         </div>
@@ -292,7 +305,8 @@ class EmailService {
         <p>Click the button above to update your information. This will help us better understand your current qualifications and experience.</p>
         
         <div class="footer">
-            <p>This email was sent by ${companyName}. If you have any questions, please contact our HR team.</p>
+      <p>This email was sent by ${companyName}. If you have any questions, please contact our HR team.</p>
+      <p style="font-size: 12px; color: #999;">AMP support detected: ${isAmpSupported ? 'Yes' : 'No'}.</p>
         </div>
     </div>
 </body>

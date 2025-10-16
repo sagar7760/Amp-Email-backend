@@ -60,21 +60,25 @@ app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
-    
+    const normalizedOrigin = origin.replace(/\/$/, '');
+
     const allowedOrigins = [
       'https://mail.google.com',
       'https://gmail.com',
       'https://googlemail.com',
       'https://amp.gmail.dev',
       'https://amp-email-viewer.appspot.com',
+      process.env.SERVER_URL,
       process.env.FRONTEND_URL
-    ].filter(Boolean);
-    
+    ]
+      .filter(Boolean)
+      .map(url => url.replace(/\/$/, ''));
+
     // Check if origin is in allowed list or is a Google/Gmail subdomain
-    const isAllowed = allowedOrigins.includes(origin) || 
-                     origin.includes('.google.com') || 
-                     origin.includes('.gmail.com') ||
-                     origin.includes('.googlemail.com');
+    const isAllowed = allowedOrigins.includes(normalizedOrigin) || 
+                     normalizedOrigin.includes('.google.com') || 
+                     normalizedOrigin.includes('.gmail.com') ||
+                     normalizedOrigin.includes('.googlemail.com');
     
     if (isAllowed) {
       callback(null, true);
